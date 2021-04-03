@@ -1,0 +1,199 @@
+#!/bin/bash
+#set -x
+
+# Start Time For Processing Script Elapsed Run Time
+SECONDS=0
+
+# Default Black Detect Value in Seconds if -s option NOT used
+value=".5"
+
+# Minimum Chapter Length in Seconds
+Min_Chap=60
+
+
+# Text Colors
+BoRed=$(tput bold; tput setaf 1)
+Bogreen=$(tput bold; tput setaf 28)
+green=$(tput setaf 28)
+purple=$(tput setaf 128)
+brown=$(tput setaf 130)
+yellow=$(tput setaf 226)
+red=$(tput setaf 1)
+white=$(tput setaf 15)
+blue=$(tput setaf 21)
+pink=$(tput setaf 200)
+Lblue=$(tput setaf 117)
+orange=$(tput setaf 166)
+Lorange=$(tput setaf 215)
+reset=$(tput sgr0) #  Reset text attributes to normal
+invis=$(tput civis) # Invisable Cursor
+norm=$(tput cnorm) # Reset Invisable Cursor
+
+# If option -s is given use the supplied argument for the Balck Detect Value. If not use Default Value.
+while getopts ":s:" opt; do
+  case $opt in
+    s)
+      value="$OPTARG" >&2; shift "$(($OPTIND -1))"
+      ;;
+    \?)
+      printf "%b\n" "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Filename Argument
+filename="${1}"
+
+
+# Requirements Check
+REQUIRES="ffmpeg mkvpropedit"
+
+Dep_Check()
+{
+# Check that required tools are installed
+for tool in ${REQUIRES}; do
+    if ! [ -x "$(command -v ${tool})" ]; then
+        printf "%b\n" ${red}  "Error: ${tool} is not installed or not in your path. ${tool} is required.${reset}\n" >&2
+        exit 1
+    fi
+done
+}
+
+Control_C()
+# run if user hits control+c
+{
+tput el1
+  printf "%b\n" ${orange} "  *** CTRL+C Detected ***" "\n"
+  RM_Temp
+printf "%b" ${reset}${norm}
+  exit $?
+}
+
+
+
+
+
+RM_Temp()
+{
+printf "%b\n"
+if [ -f times1.log ]; then
+	rm times*.log
+	printf "%b" ${red} "*** Removing temp log file ***" "\n"
+fi
+if [ -f Chapters.txt ]; then
+	rm Chapters.txt
+	printf "%b" ${red} "*** Removing temp file Chapters.txt ***" "\n"
+fi
+if [ -f Chapters-Final.txt ]; then
+	rm Chapters-Final.txt
+	printf "%b" ${red} "*** Removing temp file Chapters-Final.txt ***" "\n"
+fi
+}
+
+
+
+Chapter_Gen()
+{
+
+	printf "%b\n" "00:00:00.000" > Chapters.txt
+	printf "%b\n" ${pink} "${filename##*/}"${reset}
+	printf "%b" ${green} "Generating Chapter Times With FFmpeg Blackdetect Value of ${value} Seconds........Wait${invis}"
+	
+	# Black Detection
+	ffmpeg -i "${filename}" -vf blackdetect=d="${value}":pix_th=.1:pic_th=.98 -an -f null - 2>&1 | grep -Pio '(?<=black_end:).*?(?= black_duration)' >> times1.log &
+	
+	# Scene Detection
+	#ffmpeg -i "${filename}" -filter:v "select='gt(scene,.1)',showinfo" -f null - 2>&1 | grep -Pio '(?<=pts_time:).*?(?= pos:)' >> times1.log &
+	#ffmpeg -v info -f lavfi -i "movie=${filename},scdet=s=1:t=14" -f null - 2>&1 | grep -Pio '(?<=lavfi.scd.time: ).*' >> times1.log &
+	#ffprobe -v quiet -show_frames -of compact=p=0 -f lavfi "movie=${filename},select=gt(scene\,.4)" | grep -Pio '(?<=pkt_dts_time=).*?(?=\|best_effort_)' >> times1.log &
+	
+	# Silence Detect
+	#ffmpeg -i "${filename}" -showinfo -af silencedetect=n=-50dB:d=0.5 -an -f null - 2>&1 | grep -Pio '(?<=silence_end: ).*?(?= \| )' >> times1.log &
+	#ffmpeg -v warning -i "${filename}" -af silencedetect=-55dB:d=.01,ametadata=mode=print:file=-:key=lavfi.silence_start -vn -sn -f s16le -y /dev/null | grep lavfi.silence_start= | cut -d '=' -f 2 >> times1.log &
+	
+	Spinner $!
+	
+	printf "%b\n" ${reset}${norm}
+
+
+# Attempt to make sure no chapter is less than xx seconds
+# See Variable Min_Chap at top of script
+##################################################
+##################################################
+
+mapfile -O 1 -t < times1.log float
+Count=2
+until [[ "${Count}" -gt "${#float[@]}" ]]; do
+Value=$(printf "%b\n" "${float[Count]}"-"${float[(( Count -1 ))]}" | bc)
+if ! [[ "${Value%.*}" -lt "${Min_Chap}" ]]; then
+printf "%b\n" "${float[Count]}" >> times2.log
+fi
+(( Count ++ ))
+done < times1.log
+
+##################################################
+##################################################
+
+
+# Read the floating point time's and convert to HH:MM:SS.xxx
+while read -r times; do
+	Convert_Seconds "${times}" >> Chapters.txt
+done < <(cat times2.log)
+
+	totalchapters=$(cat Chapters.txt | wc -l)
+
+	mapfile -t -O 1 < <(seq -f %02g 1 "${totalchapters}") chapter_marker
+
+	count=1
+
+while read -r Chapter; do
+
+   printf "%b\n" CHAPTER"${chapter_marker[count]}=$Chapter" >> Chapters-Final.txt
+   printf "%b\n" CHAPTER"${chapter_marker[count]}NAME=Chapter ${chapter_marker[count]}" >> Chapters-Final.txt
+   (( count ++ ))
+done < <(cat Chapters.txt)
+printf "%b" ${Lblue}
+cat Chapters-Final.txt
+printf "%b\n" ${orange} "Removing Existing Chapters if they are Present${reset}"
+mkvpropedit -c '' "${filename}"
+printf "%b\n" ${green} "Inserting New Chapters ${reset}"
+mkvpropedit -c "Chapters-Final.txt" "${filename}"
+ELAPSED="Processing Time: $(($SECONDS / 3600)) hrs $((($SECONDS / 60) % 60)) min $(($SECONDS % 60)) sec"
+printf "%b\n" ${yellow} "${ELAPSED}"
+}
+
+
+Spinner()
+{
+    printf "%b" ${Lblue}
+    local pid=$1
+    local delay=1.25
+    local spinstr='|/-\'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf  " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
+Convert_Seconds()
+{
+ H=$(bc <<< "${1}/3600")
+ M=$(bc <<< "(${1}%3600)/60")
+ S=$(bc <<< "${1}%60")
+ printf "%02d:%02d:%05.3f\n" $H $M $S
+}
+
+Dep_Check
+trap Control_C SIGINT
+RM_Temp
+Chapter_Gen
+RM_Temp
