@@ -5,8 +5,8 @@ Works best with TV Shows that have had commercials stripped out and leave a noti
    
    
 Example without any options that uses the default blackdetect seconds value (.5)   
-```FFchap Blue Bloods - S06E02 - Absolute Power.mkv```   
+```FFchap "Blue Bloods - S06E02 - Absolute Power.mkv"```   
    
    Example using the -s option for custom blackdetect value   
-   ```FFchap -s 1.5 Blue Bloods - S06E02 - Absolute Power.mkv```   
+   ```FFchap -s 1.5 "Blue Bloods - S06E02 - Absolute Power.mkv"```   
    
