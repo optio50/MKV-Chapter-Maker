@@ -13,6 +13,6 @@ Example without any options that uses the default blackdetect seconds value (.5)
 mkvpropedit & ffmpeg are required   
    
    If you have chapters in the mkv file they will be replaced.   
-   Target files are NOT re-encoded and mkvpropedit is instantanious.   
+   Target files are NOT re-encoded and mkvpropedit is instantaneous.   
    720 files are processed resonably quick <1 min 1080p is noticeably longer.   
    
