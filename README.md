@@ -1,3 +1,5 @@
+![ScreenShot](https://raw.githubusercontent.com/optio50/MKV-Chapter-Maker/main/ScreenShot.png?raw=true|alt=octocat)
+
 # MKV-Chapter-Maker
 Auto generate MKV chapters using FFmpeg BlackDetect filter   
 Works best with TV Shows that have had commercials stripped out and leave a noticable black screen.   
