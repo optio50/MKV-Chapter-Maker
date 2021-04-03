@@ -10,3 +10,9 @@ Example without any options that uses the default blackdetect seconds value (.5)
    Example using the -s option for custom blackdetect value   
    ```FFchap -s 1.5 "Blue Bloods - S06E02 - Absolute Power.mkv"```   
    
+mkvpropedit & ffmpeg are required   
+   
+   If you have chapters in the mkv file they will be replaced.   
+   Target files are NOT re-encoded and mkvpropedit is instantanious.   
+   720 files are processed resonably quick <1 min 1080p is noticeably longer.   
+   
